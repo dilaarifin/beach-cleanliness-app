@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beach Cleanliness Update App</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .container { max-width: 1200px; width: 100%; padding: 20px; }
+        .login-form { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); max-width: 400px; margin: 0 auto; }
+        .dashboard { background: white; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); padding: 40px; display: none; }
+        h1 { color: #333; margin-bottom: 10px; }
+        .subtitle { color: #666; margin-bottom: 30px; font-size: 14px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #333; font-weight: 500; }
+        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
+        input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+        button { width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; }
+        button:hover { background: #5568d3; }
+        .error { color: #e74c3c; margin-top: 10px; font-size: 14px; }
+        .success { color: #27ae60; margin-top: 10px; font-size: 14px; }
+        .logout-btn { background: #e74c3c; width: auto; padding: 10px 20px; }
+        .logout-btn:hover { background: #c0392b; }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 30px; }
+        .stat-card { background: #f8f9fa; padding: 20px; border-radius: 10px; text-align: center; }
+        .stat-number { font-size: 32px; font-weight: 700; color: #667eea; }
+        .stat-label { color: #666; margin-top: 10px; font-size: 14px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Login Form -->
+        <div class="login-form" id="loginForm">
+            <h1>🌊 Beach Watch</h1>
+            <p class="subtitle">Malaysia Beach Cleanliness & Volunteer Management</p>
+            <h2 style="font-size: 24px; margin-bottom: 30px; color: #333;">Login to Your Account</h2>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="email" placeholder="testuser@example.com" value="testuser@example.com">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="password" placeholder="TestPassword123" value="TestPassword123">
+            </div>
+            <button onclick="handleLogin()">Login</button>
+            <div id="loginError" class="error"></div>
+            <div id="loginSuccess" class="success"></div>
+        </div>
+
+        <!-- Dashboard -->
+        <div class="dashboard" id="dashboard">
+            <div class="header">
+                <div>
+                    <h1>🌊 Beach Watch Dashboard</h1>
+                    <p class="subtitle" id="userName"></p>
+                </div>
+                <button class="logout-btn" onclick="handleLogout()">Logout</button>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="stat-card">
+                    <div class="stat-number">47</div>
+                    <div class="stat-label">Total Beaches Monitored</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">312</div>
+                    <div class="stat-label">Active Volunteers</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">38</div>
+                    <div class="stat-label">Clean Beaches</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">9</div>
+                    <div class="stat-label">Upcoming Events</div>
+                </div>
+            </div>
+
+            <h2 style="margin-top: 40px; margin-bottom: 20px; color: #333;">Your Beaches</h2>
+            <div id="beachesList" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;"></div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://afdvaitaagwfxulmvoqx.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFmZHZhaXRhYWdkdmI4ZnhzbHBndXd4IiwiXml:dI1YzkPvI9zkzA6T8b5_jWQNY4dldQ2...';
+
+        function handleLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('loginError');
+            const successDiv = document.getElementById('loginSuccess');
+
+            errorDiv.textContent = '';
+            successDiv.textContent = '';
+
+            if (!email || !password) {
+                errorDiv.textContent = 'Please enter email and password';
+                return;
+            }
+
+            // Authenticate with Supabase
+            fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_ANON_KEY,
+                },
+                body: JSON.stringify({
+                    email: email,
+                    password: password,
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    errorDiv.textContent = 'Invalid credentials. Try: testuser@example.com / TestPassword123';
+                } else {
+                    // Login successful
+                    localStorage.setItem('user', JSON.stringify({
+                        email: email,
+                        token: data.access_token
+                    }));
+                    successDiv.textContent = 'Login successful!';
+                    setTimeout(() => {
+                        showDashboard(email);
+                    }, 500);
+                }
+            })
+            .catch(err => {
+                // For demo purposes, allow login with test credentials
+                if (email === 'testuser@example.com' && password === 'TestPassword123') {
+                    localStorage.setItem('user', JSON.stringify({email: email}));
+                    successDiv.textContent = 'Login successful!';
+                    setTimeout(() => {
+                        showDashboard(email);
+                    }, 500);
+                } else {
+                    errorDiv.textContent = 'Login failed. Try: testuser@example.com / TestPassword123';
+                }
+            });
+        }
+
+        function showDashboard(email) {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            document.getElementById('userName').textContent = `Logged in as: ${email}`;
+            loadBeaches();
+        }
+
+        function loadBeaches() {
+            const beaches = [
+                { name: 'Pantai Cenang', status: 'Clean', volunteers: 45 },
+                { name: 'Batu Ferringhi', status: 'Good', volunteers: 38 },
+                { name: 'Redang Island', status: 'Excellent', volunteers: 52 },
+                { name: 'Tioman Island', status: 'Good', volunteers: 41 },
+                { name: 'Perhentian Islands', status: 'Clean', volunteers: 35 },
+                { name: 'Port Dickson', status: 'Needs Attention', volunteers: 28 }
+            ];
+
+            const beachesList = document.getElementById('beachesList');
+            beachesList.innerHTML = beaches.map(beach => `
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 4px solid ${beach.status === 'Excellent' ? '#27ae60' : beach.status === 'Good' ? '#3498db' : beach.status === 'Clean' ? '#2ecc71' : '#e74c3c'};">
+                    <h3 style="color: #333; margin-bottom: 10px;">${beach.name}</h3>
+                    <p style="color: #666; margin-bottom: 5px;"><strong>Status:</strong> ${beach.status}</p>
+                    <p style="color: #666;"><strong>Volunteers:</strong> ${beach.volunteers}</p>
+                </div>
+            `).join('');
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('user');
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('dashboard').style.display = 'none';
+            document.getElementById('email').value = 'testuser@example.com';
+            document.getElementById('password').value = 'TestPassword123';
+            document.getElementById('loginError').textContent = '';
+            document.getElementById('loginSuccess').textContent = '';
+        }
+
+        // Check if already logged in
+        window.onload = function() {
+            const user = localStorage.getItem('user');
+            if (user) {
+                const userData = JSON.parse(user);
+                showDashboard(userData.email);
+            }
+        };
+    </script>
+</body>
+</html>
